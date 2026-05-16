@@ -16,7 +16,10 @@ def create_app(config_class: type = Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    try:
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    except OSError:
+        pass
 
     db.init_app(app)
     migrate.init_app(app, db)
