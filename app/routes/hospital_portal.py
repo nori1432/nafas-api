@@ -8,7 +8,7 @@ from ..models.hospital import Hospital, BedHistory
 from ..models.appointment import Appointment
 from ..models.equipment import Equipment, EQUIPMENT_STATUS
 from ..models.company import MaintenanceNeed, ServiceOffer, NEED_URGENCY, NEED_STATUS
-from ..models.complaint import Complaint
+from ..models.community import CommunityQuestion
 from ..utils.helpers import ok, fail, paginate, serialize_list
 from ..utils.decorators import role_required
 
@@ -35,8 +35,9 @@ def hosp_dashboard(current_user):
     staff_count = User.query.filter_by(hospital_id=hid, is_active=True).filter(
         User.role.in_(("doctor", "engineer"))
     ).count()
-    open_complaints = Complaint.query.filter_by(hospital_id=hid).filter(
-        Complaint.status != "closed"
+    open_community_questions = CommunityQuestion.query.filter(
+        (CommunityQuestion.hospital_id == hid) | (CommunityQuestion.hospital_id.is_(None)),
+        CommunityQuestion.status == "open"
     ).count()
     faulty_equip = Equipment.query.filter_by(hospital_id=hid).filter(
         Equipment.status.in_(("faulty", "under_repair"))
@@ -51,7 +52,7 @@ def hosp_dashboard(current_user):
         "hospital": h.to_dict(),
         "appointments_today": appts_today,
         "staff_count": staff_count,
-        "open_complaints": open_complaints,
+        "open_community_questions": open_community_questions,
         "faulty_equipment": faulty_equip,
         "open_maintenance_needs": open_needs,
         "recent_appointments": serialize_list(recent_appts),
@@ -312,35 +313,6 @@ def hosp_decide_offer(nid, oid, current_user):
     return ok(offer.to_dict(), "Offer " + ("accepted" if action == "accept" else "rejected"))
 
 
-# ── Complaints ────────────────────────────────────────────────────────────────
-
-@bp.get("/complaints")
-@role_required("hospital_admin")
-def hosp_complaints(current_user):
-    hid = _hid(current_user)
-    q = Complaint.query.filter_by(hospital_id=hid)
-    if (s := request.args.get("status")):
-        q = q.filter_by(status=s)
-    items, pag = paginate(q.order_by(Complaint.created_at.desc()))
-    return ok(serialize_list(items), pagination=pag)
-
-
-@bp.put("/complaints/<int:cid>")
-@role_required("hospital_admin")
-def hosp_update_complaint(cid, current_user):
-    hid = _hid(current_user)
-    c = Complaint.query.get_or_404(cid)
-    if c.hospital_id != hid:
-        return fail("Forbidden", 403)
-    data = request.get_json(silent=True) or {}
-    if "status" in data:
-        c.status = data["status"]
-    if "admin_response" in data:
-        c.admin_response = data["admin_response"]
-    db.session.commit()
-    return ok(c.to_dict(), "Updated")
-
-
 # ── Reports ───────────────────────────────────────────────────────────────────
 
 @bp.get("/reports")
@@ -357,17 +329,11 @@ def hosp_reports(current_user):
     equip_by_status = db.session.query(
         Equipment.status, db.func.count(Equipment.id)
     ).filter_by(hospital_id=hid).group_by(Equipment.status).all()
-    complaints_by_status = db.session.query(
-        Complaint.status, db.func.count(Complaint.id)
-    ).filter_by(hospital_id=hid).filter(
-        Complaint.created_at >= since
-    ).group_by(Complaint.status).all()
     needs_by_urgency = db.session.query(
         MaintenanceNeed.urgency, db.func.count(MaintenanceNeed.id)
     ).filter_by(hospital_id=hid).group_by(MaintenanceNeed.urgency).all()
     return ok({
         "appointments": [{"status": s, "count": c} for s, c in appts_by_status],
         "equipment":    [{"status": s, "count": c} for s, c in equip_by_status],
-        "complaints":   [{"status": s, "count": c} for s, c in complaints_by_status],
         "needs_urgency": [{"urgency": u, "count": c} for u, c in needs_by_urgency],
     })

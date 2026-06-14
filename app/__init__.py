@@ -52,13 +52,13 @@ def create_app(config_class: type = Config) -> Flask:
     from .routes.medical_records import bp as records_bp
     from .routes.maintenance import bp as maintenance_bp
     from .routes.donations import bp as donations_bp
-    from .routes.complaints import bp as complaints_bp
     from .routes.ratings import bp as ratings_bp
     from .routes.notifications import bp as notifications_bp
     from .routes.admin import bp as admin_bp
     from .routes.hospital_portal import bp as hospital_portal_bp
     from .routes.companies import bp as companies_bp
     from .routes.subscriptions_pub import bp as subscriptions_pub_bp
+    from .routes.community import bp as community_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(hospitals_bp, url_prefix="/api")
@@ -66,13 +66,13 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(records_bp, url_prefix="/api")
     app.register_blueprint(maintenance_bp, url_prefix="/api")
     app.register_blueprint(donations_bp, url_prefix="/api")
-    app.register_blueprint(complaints_bp, url_prefix="/api")
     app.register_blueprint(ratings_bp, url_prefix="/api")
     app.register_blueprint(notifications_bp, url_prefix="/api")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(hospital_portal_bp, url_prefix="/api/hospital-portal")
     app.register_blueprint(companies_bp, url_prefix="/api/companies")
     app.register_blueprint(subscriptions_pub_bp, url_prefix="/api")
+    app.register_blueprint(community_bp, url_prefix="/api")
 
     @app.route("/api/health")
     def health():

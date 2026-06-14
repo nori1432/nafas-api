@@ -4,7 +4,7 @@ from flask import Blueprint, request
 
 from .. import db
 from ..models.hospital import Hospital, HospitalSpecialty, BedHistory, HOSPITAL_TYPES
-from ..models.complaint import HospitalRating, Complaint
+from ..models.complaint import HospitalRating
 from ..models.user import User
 from ..utils.helpers import ok, fail, paginate, serialize_list, notify_role
 from ..utils.decorators import role_required, jwt_user_required
@@ -36,7 +36,6 @@ def get_hospital(hid):
     # stats
     avg = db.session.query(db.func.avg(HospitalRating.score)).filter_by(hospital_id=hid).scalar()
     data["avg_rating"] = round(float(avg), 2) if avg else 0
-    data["complaint_count"] = Complaint.query.filter_by(hospital_id=hid).count()
     return ok(data)
 
 
@@ -173,7 +172,6 @@ def hospital_stats(hid):
     avg = db.session.query(db.func.avg(HospitalRating.score)).filter_by(hospital_id=hid).scalar()
     return ok({
         "avg_rating": round(float(avg), 2) if avg else 0,
-        "complaint_count": Complaint.query.filter_by(hospital_id=hid).count(),
         "available_beds": h.available_beds,
         "total_beds": h.total_beds,
         "specialty_count": HospitalSpecialty.query.filter_by(hospital_id=hid).count(),

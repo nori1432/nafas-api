@@ -6,8 +6,8 @@ from flask_jwt_extended import create_access_token
 from .. import db
 from ..models.user import User, USER_ROLES
 from ..models.hospital import Hospital, HospitalSpecialty, HOSPITAL_TYPES
-from ..models.complaint import Complaint
-from ..models.donation import BloodCampaign, FinancialDonation, BloodDonation
+from ..models.donation import BloodCampaign, BloodDonation
+from ..models.community import CommunityQuestion
 from ..models.equipment import MaintenanceReport
 from ..models.company import (
     MaintenanceCompany, MaintenanceNeed, ServiceOffer,
@@ -27,7 +27,7 @@ def dashboard(current_user):
     total_beds = db.session.query(db.func.coalesce(db.func.sum(Hospital.total_beds), 0)).scalar()
     avail_beds = db.session.query(db.func.coalesce(db.func.sum(Hospital.available_beds), 0)).scalar()
     active_campaigns = BloodCampaign.query.filter_by(status="active").count()
-    open_complaints = Complaint.query.filter(Complaint.status != "closed").count()
+    open_community_questions = CommunityQuestion.query.filter_by(status="open").count()
     active_subs = Subscription.query.filter_by(status="active").count()
     approved_companies = MaintenanceCompany.query.filter_by(is_approved=True, is_active=True).count()
     pending_companies = MaintenanceCompany.query.filter_by(is_approved=False, is_active=True).count()
@@ -42,7 +42,7 @@ def dashboard(current_user):
         "total_beds": int(total_beds),
         "available_beds": int(avail_beds),
         "active_blood_campaigns": active_campaigns,
-        "open_complaints": open_complaints,
+        "open_community_questions": open_community_questions,
         "total_users": User.query.filter_by(is_active=True).count(),
         "active_subscriptions": active_subs,
         "approved_companies": approved_companies,
@@ -146,31 +146,14 @@ def admin_delete_hospital(hid, current_user):
     return ok(message="Hospital deactivated")
 
 
-@bp.get("/complaints")
-@role_required("national_admin")
-def admin_complaints(current_user):
-    q = Complaint.query
-    if (s := request.args.get("status")):
-        q = q.filter_by(status=s)
-    if (h := request.args.get("hospital_id")):
-        q = q.filter_by(hospital_id=int(h))
-    if (c := request.args.get("category")):
-        q = q.filter_by(category=c)
-    q = q.order_by(Complaint.created_at.desc())
-    items, pag = paginate(q)
-    return ok(serialize_list(items), pagination=pag)
-
-
 @bp.get("/donations")
 @role_required("national_admin")
 def admin_donations(current_user):
-    kind = request.args.get("type", "financial")
-    if kind == "blood":
-        q = BloodDonation.query
-    elif kind == "campaign":
+    kind = request.args.get("type", "blood")
+    if kind == "campaign":
         q = BloodCampaign.query
     else:
-        q = FinancialDonation.query
+        q = BloodDonation.query
     if (s := request.args.get("status")):
         q = q.filter_by(status=s)
     items, pag = paginate(q)
@@ -210,16 +193,12 @@ def report_beds(current_user):
 def report_donations(current_user):
     days = int(request.args.get("days", 30))
     since = datetime.utcnow() - timedelta(days=days)
-    fin_total = db.session.query(db.func.coalesce(db.func.sum(FinancialDonation.amount), 0)).filter(
-        FinancialDonation.donated_at >= since
-    ).scalar()
     blood_total = BloodDonation.query.filter(
         BloodDonation.status == "completed",
         BloodDonation.donation_date >= since.date(),
     ).count()
     return ok({
         "since": since.isoformat(),
-        "financial_total_dzd": float(fin_total or 0),
         "blood_units_collected": blood_total,
         "active_campaigns": BloodCampaign.query.filter_by(status="active").count(),
     })
