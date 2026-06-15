@@ -15,6 +15,7 @@ from .donation import (
 )
 from .complaint import Complaint, HospitalRating
 from .community import CommunityQuestion, QuestionReply, ForumPost, ForumReply
+from .library import MedicalBook
 from .notification import Notification
 from .subscription_request import SubscriptionRequest
 
@@ -46,5 +47,6 @@ __all__ = [
     "QuestionReply",
     "ForumPost",
     "ForumReply",
+    "MedicalBook",
     "Notification",
 ]
