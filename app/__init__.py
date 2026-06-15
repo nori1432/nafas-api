@@ -1,9 +1,10 @@
 """Flask application factory for NAFAS."""
 import os
-from flask import Flask, jsonify, request, make_response, send_from_directory
+from flask import Flask, jsonify, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
+from flask_cors import CORS
 
 from .config import Config
 
@@ -24,23 +25,7 @@ def create_app(config_class: type = Config) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    # Handle CORS manually
-    @app.before_request
-    def _handle_preflight():
-        if request.method == "OPTIONS":
-            resp = make_response()
-            resp.headers["Access-Control-Allow-Origin"] = "*"
-            resp.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-            resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-            resp.headers["Access-Control-Max-Age"] = "86400"
-            return resp
-
-    @app.after_request
-    def _add_cors_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        return response
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=False)
 
     # Import models so Alembic autogenerate sees them
     from . import models  # noqa: F401
@@ -59,6 +44,7 @@ def create_app(config_class: type = Config) -> Flask:
     from .routes.companies import bp as companies_bp
     from .routes.subscriptions_pub import bp as subscriptions_pub_bp
     from .routes.community import bp as community_bp
+    from .routes.library import bp as library_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(hospitals_bp, url_prefix="/api")
@@ -73,6 +59,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(companies_bp, url_prefix="/api/companies")
     app.register_blueprint(subscriptions_pub_bp, url_prefix="/api")
     app.register_blueprint(community_bp, url_prefix="/api")
+    app.register_blueprint(library_bp, url_prefix="/api")
 
     @app.route("/api/health")
     def health():
